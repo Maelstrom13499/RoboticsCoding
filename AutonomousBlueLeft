@@ -1,0 +1,285 @@
+//Blue Team Left Side of Field
+package org.firstinspires.ftc.teamcode;
+
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+import org.firstinspires.ftc.robotcore.external.navigation.RelicRecoveryVuMark;
+import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackables;
+import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackable;
+import org.firstinspires.ftc.robotcore.external.ClassFactory;
+import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.hardware.ColorSensor;
+import org.firstinspires.ftc.robotcore.external.navigation.Position;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.NormalizedRGBA;
+import com.qualcomm.robotcore.hardware.DcMotorController;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.util.Range;
+
+@Disabled
+ @Autonomous (name="AutonomousBlueLeft")
+ public class AutonomousBlueLeft extends LinearOpMode 
+ {
+
+    private ElapsedTime runtime = new ElapsedTime();
+    private DcMotor leftDrive;
+    private DcMotor rightDrive;
+    private DcMotor bkleftDrive;
+    private DcMotor bkrightDrive;
+    private DcMotor middleWheel;
+    private DcMotor leadScrew;
+    private Servo jewelArm,leftArm,rightArm;
+    private ColorSensor colorSensor;
+    private VuforiaLocalizer vuforia;
+    private VuforiaTrackables relicTrackables;
+    private VuforiaTrackable relicTemplate;
+
+    private void Init()
+    {
+        leftDrive  = hardwareMap.get(DcMotor.class, "FrontLeft");
+        rightDrive = hardwareMap.get(DcMotor.class, "FrontRight");
+        bkleftDrive = hardwareMap.get(DcMotor.class, "BackLeft");
+        bkrightDrive = hardwareMap.get(DcMotor.class, "BackRight");
+        leadScrew = hardwareMap.get(DcMotor.class, "LeadScrew");
+        jewelArm = hardwareMap.get(Servo.class, "JewelArm");
+        colorSensor = hardwareMap.get(ColorSensor.class, "ColorSensor");
+        leftArm = hardwareMap.get(Servo.class, "LeftArm");
+        rightArm = hardwareMap.get(Servo.class, "RightArm");
+        middleWheel = hardwareMap.get(DcMotor.class, "MiddleWheel");
+        
+        
+        leftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        bkleftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        bkrightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        
+        leftDrive.setDirection(DcMotor.Direction.FORWARD);
+        rightDrive.setDirection(DcMotor.Direction.REVERSE);
+        bkrightDrive.setDirection(DcMotor.Direction.REVERSE);
+        bkleftDrive.setDirection(DcMotor.Direction.FORWARD);
+        
+        int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id",
+        hardwareMap.appContext.getPackageName());
+        VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters(cameraMonitorViewId);
+        parameters.vuforiaLicenseKey = "Achjvg3/////AAAAGfCii8VvD0iZksIjgMryq22ClRyyueYv3yEYuuxJaFrBiWzG5D0HuEOWIcTTl0+9uEb2Q3XL2nE8MzCKlrdeYEcJ7T2bUTuda7pp3XZVAbQx32sSPz1aVTcwpKqfNlUGDoZUbR8/XZis+6m6LjlyVAJX0NiqM/bVyPtXVegYl2oFdkYTi4iCrhQ5VAhQCkOgf30h9omjwOH+pmyZzYlZ+CvXRswAlnOA6OJj1o6ae9x3AfgeqmmXo2PMGng5mDC/vzSkk9YNsoblfzj8ukzsgmPaBZ05ry4ybqezejRsh7PNGbOu3GmKVXvIppaHtuDONKbkw3TX62hvLlgR+0o8tZngwHmogzLykrAnRSy8ylx4";
+        parameters.cameraDirection = VuforiaLocalizer.CameraDirection.BACK;
+        this.vuforia = ClassFactory.createVuforiaLocalizer(parameters);
+        relicTrackables = this.vuforia.loadTrackablesFromAsset("RelicVuMark");
+        relicTemplate = relicTrackables.get(0);
+        relicTemplate.setName("relicVuMarkTemplate"); // can help in debugging; otherwise not necessary
+        
+        telemetry.addData("status", "init complete"); telemetry.update();
+    }
+
+    
+    @Override
+    public void runOpMode() throws InterruptedException 
+    {
+        Init();
+        waitForStart();
+        
+        // Grab cube
+        leftArm.setPosition(0.35);
+        rightArm.setPosition(0.45);
+        Thread.sleep(1000);
+        LeadScrewTime(0.5, 4000);
+        Thread.sleep(1000);
+        
+        // Lower arm and wait for stabilization
+        jewelArm.setPosition(0);
+        Thread.sleep(1000);
+
+        int RedVal = 0;
+        int BlueVal = 0;
+        for (int i = 0; i < 10; i++)
+        {
+            RedVal += colorSensor.red();
+            BlueVal += colorSensor.blue();
+        }
+        
+        RedVal /= 10;
+        BlueVal /= 10;
+        telemetry.addData("Color Sensor Blue Value", BlueVal);
+        telemetry.addData("Color Sensor Red Value", RedVal);
+        telemetry.update();
+        
+        boolean CurrentColor = true; //Blue = True, Red = False
+        
+        boolean ColorModeBlue = BlueVal > RedVal;
+        
+        if (CurrentColor == ColorModeBlue) 
+        { 
+            telemetry.addData("status", "blue");
+            MiddleWheelTime(0.5, 250);
+            Thread.sleep(1000);
+            jewelArm.setPosition(0.7);
+            Thread.sleep(1000);
+        
+            // After knocking off ball
+            DriveForwardTime(-0.4, 1000);
+            Thread.sleep(1000);
+            DriveForwardTime(0.4, 300);
+            Thread.sleep(1000);
+            TurnLeftTime(-0.45, 500);
+            Thread.sleep(1000);
+            // long modifier = (CurrentColor == ColorModeBlue) ? 0 : 500;
+        
+            // Going to park
+            leftDrive.setPower(-0.6);
+            rightDrive.setPower(-0.5);
+            bkleftDrive.setPower(-0.6);
+            bkrightDrive.setPower(-0.5);
+            Thread.sleep(800);
+            DriveForward(0);
+            Thread.sleep(500);
+            MiddleWheelTime(0.5, 500);
+            Thread.sleep(1000);
+            DriveForwardTime(0.3, 450);
+            Thread.sleep(1000);
+        
+            // Drop cube
+            LeadScrewTime(-0.5, 3000);
+            leftArm.setPosition(1);
+            rightArm.setPosition(0);
+            Thread.sleep(1000);
+            DriveForwardTime(0.4, 200);
+            Thread.sleep(1000);
+        } 
+        else
+        {
+            telemetry.addData("status", "red");
+            MiddleWheelTime(-0.5, 250);
+            Thread.sleep(1000);
+            jewelArm.setPosition(0.7);
+            Thread.sleep(1000);
+        
+            /** After knocking off ball
+            DriveForwardTime(-0.4, 1000);
+            Thread.sleep(1000);
+            DriveForwardTime(0.4, 350);
+            Thread.sleep(1000);
+            TurnLeftTime(-0.45, 500);
+            Thread.sleep(1000);
+            // long modifier = (CurrentColor == ColorModeBlue) ? 0 : 500;
+        
+            // Going to park
+            DriveForwardTime(-0.5, 1500);
+            Thread.sleep(500);
+            DriveForwardTime(-0.3, 600);
+            Thread.sleep(1000);
+        
+            // Drop cube
+            LeadScrewTime(-0.5, 3000);
+            leftArm.setPosition(1);
+            rightArm.setPosition(0);
+            Thread.sleep(1000);
+            DriveForwardTime(0.4, 200);
+            Thread.sleep(1000);**/
+        }
+
+
+        // relicTrackables.activate();
+
+        // RelicRecoveryVuMark vuMark = RelicRecoveryVuMark.UNKNOWN;
+        // int timeout = 0;
+        // while(vuMark != RelicRecoveryVuMark.UNKNOWN)
+        // {
+        //     RelicRecoveryVuMark.from(relicTemplate);
+        //     timeout++;
+            
+        //     if(timeout > 3)
+        //     {
+        //         break;
+        //     }
+        // }
+        
+        
+        // DriveForwardTime(25, 1);
+        // leftArm.setPosition(1);
+        // rightArm.setPosition(1);
+        // DriveForwardTime(-25, 1);
+
+        idle();
+            
+}
+
+    public void LowerJewel(double Position)
+    {
+        jewelArm.setPosition(Position);
+        
+    }
+
+    public void DriveForward(double power) 
+    {
+        leftDrive.setPower(-power);
+        rightDrive.setPower(-power);
+        bkleftDrive.setPower(-power);
+        bkrightDrive.setPower(-power);
+    }
+
+    public void TurnLeft (double power) 
+    {
+        leftDrive.setPower(power);
+        bkleftDrive.setPower(power);
+        rightDrive.setPower(-power);
+        bkrightDrive.setPower(-power);
+    }
+    
+    public void TurnRight (double power)
+    {
+        rightDrive.setPower(power);
+        bkrightDrive.setPower(power);
+        leftDrive.setPower(-power);
+        bkleftDrive.setPower(-power);
+    }
+    
+    public void MiddleWheel (double power)
+    {
+        middleWheel.setPower(power);
+    }
+    
+    public void TurnLeftTime (double power, long time) throws InterruptedException
+    {
+        TurnLeft(power);
+        Thread.sleep(time);
+        TurnLeft(0);
+    }
+    
+    public void StopDrivingTime (double power, long time) throws InterruptedException {
+        DriveForward(0);
+        Thread.sleep(time);
+    }
+   
+    public void TurnRightTime(double power, long time) throws InterruptedException {
+        TurnRight(power);
+        Thread.sleep(time);
+        TurnRight(0);
+    }
+  
+    public void DriveForwardTime (double power, long time) throws InterruptedException
+    {
+        DriveForward(power);
+        Thread.sleep(time);
+        DriveForward(0);
+    }
+    
+    
+  public void MiddleWheelTime (double power, long time) throws InterruptedException
+  {
+      MiddleWheel(power);
+      Thread.sleep(time);
+      MiddleWheel(0);
+  }
+  
+  public void LeadScrewTime (double power, long time) throws InterruptedException
+  {
+      leadScrew.setPower(power);
+      Thread.sleep(time);
+      leadScrew.setPower(0);
+  }
+  
+}
